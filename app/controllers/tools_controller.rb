@@ -25,10 +25,6 @@ class ToolsController < ApplicationController
     @tool = Tool.new
   end
 
-  # GET /tools/1/edit
-  def edit
-  end
-
   # POST /tools or /tools.json
   def create
     path = "#{tool_params[:name]}.#{tool_params[:language]}.json"
@@ -52,13 +48,13 @@ class ToolsController < ApplicationController
 
   # GET /tools/1/update_translations or /tools/1.json
   def update_translations
-    path = "#{@tool.name}.#{@tool.language]}.json"
-    master_path = "#{@tool.name}.#{@tool.language]}.master.json"
+    path = "#{@tool.name}.#{@tool.language}.json"
+    master_path = "#{@tool.name}.#{@tool.language}.master.json"
     filename, spec, sha = fetch_file_if_exists(path) || fetch_file_if_exists(master_path)
 
     updated_spec = inject_translations(spec)
 
-    result = create_pull_request_with_translations(filename, updated_spec, sha)
+    result = create_pull_request_with_translations(filename, JSON.unparse(updated_spec), sha)
 
     respond_to do |format|
       if result
@@ -86,7 +82,7 @@ class ToolsController < ApplicationController
     title = params['pull_request']['title']
     tool_attrs = title.split('.')
 
-    _, spec = fetch_file_if_exists(title)
+    _, spec, _ = fetch_file_if_exists(title)
 
     Tool.find_by(name: tool_attrs[0], language: tool_attrs[1]).update(json_spec: spec)
   end
@@ -124,8 +120,8 @@ class ToolsController < ApplicationController
 
     def file_uploaded?(process)
       5.times do # try to check the status 5 times
-        queued_process = queued_process.reload_data # load new data
-        return(true) if queued_process.status == 'finished' # return true is the upload has finished
+        process = process.reload_data # load new data
+        return(true) if process.status == 'finished' # return true is the upload has finished
         sleep 1 # wait for 1 second, adjust this number with regards to the upload size
       end
 
@@ -134,9 +130,12 @@ class ToolsController < ApplicationController
 
     def fetch_file_if_exists(path)
       file = github_client.contents(ENV['REPO_NAME'], path: path)
-      content = file[:content]
+      download_url = file[:download_url]
+      uri = URI(download_url)
+      response = Net::HTTP.get_response(uri)
+      json_spec = JSON.parse(response.body)
+
       sha = file[:sha]
-      json_spec = Base64.decode64(content)
 
       [path, json_spec, sha]
     rescue Octokit::NotFound
@@ -144,13 +143,15 @@ class ToolsController < ApplicationController
     end
 
     def create_pull_request_with_translations(filename, content, sha)
-      branch_name = "#{filename}_#{Time.now.getutc.strftime('%Y-%m-%d_%H:%m:%s')}"
+      branch_name = "#{filename}_#{Time.now.getutc.strftime('%Y%m%d%H%m%s')}"
 
-      github_client.create_ref ENV['REPO_NAME'], "heads/#{branch_name}", Digest::SHA256.hexdigest(content)
+      commit_sha = github_client.commits(ENV['REPO_NAME'], 'main').first[:sha]
+
+      github_client.create_ref ENV['REPO_NAME'], "heads/#{branch_name}", commit_sha
 
       github_client.update_contents(ENV['REPO_NAME'], filename, 'Updating translations', sha, content, branch: branch_name)
 
-      github_client.create_pull_request(ENV['REPO_NAME'], 'master', branch_name, filename, '')
+      github_client.create_pull_request(ENV['REPO_NAME'], 'main', branch_name, filename, '')
     end
 
     def upload_to_lokalize(tool, filename)
@@ -161,7 +162,7 @@ class ToolsController < ApplicationController
     end
 
     def download_from_lokalize
-      url = lokalize_client.download_files(ENV['LOKALIZE_PROJECT_ID'], format: :json)['bundle_url']
+      download_url = lokalize_client.download_files(ENV['LOKALIZE_PROJECT_ID'], format: :json)['bundle_url']
       uri = URI(download_url)
       response = Net::HTTP.get_response(uri)
 
@@ -169,11 +170,13 @@ class ToolsController < ApplicationController
     end
 
     def unpack_and_parse(raw)
+      translations = ""
+
       Zip::File.open_buffer(raw) do |zip|
         zip.each do |entry|
           next unless entry.file?
 
-          entry.extract(Time.now.getutc.strftime('%Y-%m-%d_%H:%m:%s'))
+          entry.extract("/tmp/#{Time.now.getutc.strftime('%Y-%m-%d_%H:%m:%s')}")
           translations = JSON.parse(entry.get_input_stream.read)
         end
       end
@@ -186,13 +189,14 @@ class ToolsController < ApplicationController
 
       download_from_lokalize.each do |path, translation|
         keys_array = path.split('_')
-        last_key = keys_array.pop
+        keys_array.size > 1 ? last_key = keys_array.pop : last_key = keys_array.last
 
         command_string = 'resulting_spec'
         keys_array.each { |key| command_string = command_string + "['" + key + "']" }
 
         command_string = "#{command_string} = '#{translation}'"
         eval(command_string)
+      rescue NoMethodError, IndexError
       end
 
       resulting_spec

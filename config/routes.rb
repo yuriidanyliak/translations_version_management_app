@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  root to: "tools#index"
   resources :tools do
     get :update_translations, on: :member
   end
