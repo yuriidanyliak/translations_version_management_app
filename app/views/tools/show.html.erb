@@ -1,0 +1,20 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <strong>Name:</strong>
+  <%= @tool.name %>
+</p>
+
+<p>
+  <strong>Language:</strong>
+  <%= @tool.language %>
+</p>
+
+<p>
+  <strong>Json spec:</strong>
+  <%= @tool.json_spec %>
+</p>
+
+<%= link_to 'Edit', edit_tool_path(@tool) %> |
+<%= link_to 'Update translations', update_translations_tool_path(@tool) %> |
+<%= link_to 'Back', tools_path %>
