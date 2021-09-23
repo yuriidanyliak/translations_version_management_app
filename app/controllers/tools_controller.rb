@@ -5,7 +5,7 @@ require 'ruby-lokalise-api'
 require 'digest'
 
 class ToolsController < ApplicationController
-  before_action :set_tool, only: %i[ show edit update_translations destroy ]
+  before_action :set_tool, only: %i[ show update_translations ]
 
   skip_before_action :verify_authenticity_token, only: [:update_merged]
 
@@ -62,15 +62,6 @@ class ToolsController < ApplicationController
       else
         format.html { render :edit, status: :unprocessable_entity }
       end
-    end
-  end
-
-  # DELETE /tools/1 or /tools/1.json
-  def destroy
-    @tool.destroy
-    respond_to do |format|
-      format.html { redirect_to tools_url, notice: "Tool was successfully destroyed." }
-      format.json { head :no_content }
     end
   end
 

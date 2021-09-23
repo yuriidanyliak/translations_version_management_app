@@ -19,8 +19,6 @@
         <td><%= tool.language %></td>
         <td><%= truncate(tool.json_spec.to_json, length: 100) %></td>
         <td><%= link_to 'Show', tool %></td>
-        <td><%= link_to 'Edit', edit_tool_path(tool) %></td>
-        <td><%= link_to 'Destroy', tool, method: :delete, data: { confirm: 'Are you sure?' } %></td>
       </tr>
     <% end %>
   </tbody>
