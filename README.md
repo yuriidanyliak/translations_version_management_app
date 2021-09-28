@@ -1,24 +1,12 @@
 # README
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
-
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+## How to run an app:*
+- rvm install 2.7.1 (or whatever ruby version that works with Rails 6)
+- rvm use 2.7.1@tvm (or whatever ruby version management tool you use)
+- bundle install
+- createuser -P -d tvm (st password tvm_password)
+- rake db:create db:migrate
+- rake webpacker:install
+- rails s
+- Navigate to http://localhost:3000
+- Voilà!
